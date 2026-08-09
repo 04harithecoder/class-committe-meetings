@@ -1,6 +1,18 @@
 import { useState } from "react";
 import { palette, inputStyle } from "../theme";
+const MIN_WORDS = 4;
+const MAX_WORDS = 90;
 
+function countWords(text) {
+    return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+// Caps text at MAX_WORDS so typing beyond the limit is simply ignored
+function capToMaxWords(text) {
+    const words = text.split(/\s+/).filter(Boolean);
+    if (words.length <= MAX_WORDS) return text;
+    return words.slice(0, MAX_WORDS).join(" ");
+}
 // ---- Mock data — replace with data fetched from Flask API ----
 const mockMember = { name: "Rukmini Vasanth", rollNumber: "2403717672622040" };
 const mockPortalOpen = true;
@@ -9,7 +21,6 @@ const mockSubject = {
     faculty: "Dr. N.PRIYA",
     hasLab: false,
 };
-
 const cardStyle = {
     background: palette.card,
     borderRadius: "16px",
@@ -133,19 +144,40 @@ function ConfirmModal({ open, onCancel, onConfirm }) {
 }
 
 function FeedbackBlock({ title, value, onChange, locked, placeholder }) {
+    const wordCount = countWords(value);
+    const belowMin = wordCount > 0 && wordCount < MIN_WORDS;
+    const atMax = wordCount >= MAX_WORDS;
+
     return (
         <div style={{ marginBottom: "18px" }}>
-            <label
+            <div
                 style={{
-                    display: "block",
-                    fontSize: "13px",
-                    fontWeight: 500,
-                    color: palette.heading,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "baseline",
                     marginBottom: "6px",
                 }}
             >
-                {title}
-            </label>
+                <label
+                    style={{
+                        fontSize: "13px",
+                        fontWeight: 500,
+                        color: palette.heading,
+                    }}
+                >
+                    {title}
+                </label>
+                {!locked && (
+                    <span
+                        style={{
+                            fontSize: "12px",
+                            color: atMax ? palette.burnt : "#9a9a86",
+                        }}
+                    >
+                        {wordCount}/{MAX_WORDS} words
+                    </span>
+                )}
+            </div>
             {locked ? (
                 <div
                     style={{
@@ -158,14 +190,21 @@ function FeedbackBlock({ title, value, onChange, locked, placeholder }) {
                     {value || <span style={{ color: "#a8a894" }}>No feedback given.</span>}
                 </div>
             ) : (
-                <textarea
-                    value={value}
-                    onChange={onChange}
-                    placeholder={placeholder}
-                    style={textareaStyle}
-                    onFocus={(e) => (e.target.style.borderColor = palette.burnt)}
-                    onBlur={(e) => (e.target.style.borderColor = palette.border)}
-                />
+                <>
+                    <textarea
+                        value={value}
+                        onChange={(e) => onChange(capToMaxWords(e.target.value))}
+                        placeholder={placeholder}
+                        style={textareaStyle}
+                        onFocus={(e) => (e.target.style.borderColor = palette.burnt)}
+                        onBlur={(e) => (e.target.style.borderColor = palette.border)}
+                    />
+                    {belowMin && (
+                        <p style={{ fontSize: "12px", color: palette.burnt, margin: "6px 0 0" }}>
+                            Write at least {MIN_WORDS} words to submit.
+                        </p>
+                    )}
+                </>
             )}
         </div>
     );
@@ -180,6 +219,10 @@ export default function MemberDashboard() {
     const [generalFeedback, setGeneralFeedback] = useState("");
     const [generalLocked, setGeneralLocked] = useState(false);
     const [generalModalOpen, setGeneralModalOpen] = useState(false);
+
+    const subjectFeedbackValid =
+        countWords(theoryFeedback) >= MIN_WORDS &&
+        (!mockSubject.hasLab || countWords(labFeedback) >= MIN_WORDS);
 
     const confirmSubjectSubmit = () => {
         // Hook this up to Flask /api/responses endpoint later
@@ -304,7 +347,7 @@ export default function MemberDashboard() {
                     <FeedbackBlock
                         title="Theory feedback"
                         value={theoryFeedback}
-                        onChange={(e) => setTheoryFeedback(e.target.value)}
+                        onChange={setTheoryFeedback}
                         locked={subjectLocked}
                         placeholder="Share your feedback on the theory sessions — pace, clarity, doubts resolved, etc."
                     />
@@ -313,7 +356,7 @@ export default function MemberDashboard() {
                         <FeedbackBlock
                             title="Lab feedback"
                             value={labFeedback}
-                            onChange={(e) => setLabFeedback(e.target.value)}
+                            onChange={setLabFeedback}
                             locked={subjectLocked}
                             placeholder="Share your feedback on the lab sessions."
                         />
@@ -322,17 +365,17 @@ export default function MemberDashboard() {
                     {!subjectLocked && (
                         <button
                             onClick={() => setSubjectModalOpen(true)}
-                            disabled={!theoryFeedback.trim()}
+                            disabled={!subjectFeedbackValid}
                             style={{
                                 marginTop: "6px",
                                 padding: "11px 22px",
                                 borderRadius: "10px",
                                 border: "none",
-                                background: theoryFeedback.trim() ? palette.primary : "#c9c9b8",
+                                background: subjectFeedbackValid ? palette.primary : "#c9c9b8",
                                 color: palette.bg,
                                 fontSize: "14px",
                                 fontWeight: 600,
-                                cursor: theoryFeedback.trim() ? "pointer" : "not-allowed",
+                                cursor: subjectFeedbackValid ? "pointer" : "not-allowed",
                             }}
                         >
                             Submit subject feedback
@@ -360,7 +403,7 @@ export default function MemberDashboard() {
                     <FeedbackBlock
                         title="Your feedback"
                         value={generalFeedback}
-                        onChange={(e) => setGeneralFeedback(e.target.value)}
+                        onChange={setGeneralFeedback}
                         locked={generalLocked}
                         placeholder="Share any non-academic points you'd like the committee to know."
                     />
@@ -368,17 +411,19 @@ export default function MemberDashboard() {
                     {!generalLocked && (
                         <button
                             onClick={() => setGeneralModalOpen(true)}
-                            disabled={!generalFeedback.trim()}
+                            disabled={countWords(generalFeedback) < MIN_WORDS}
                             style={{
                                 marginTop: "6px",
                                 padding: "11px 22px",
                                 borderRadius: "10px",
                                 border: "none",
-                                background: generalFeedback.trim() ? palette.primary : "#c9c9b8",
+                                background:
+                                    countWords(generalFeedback) >= MIN_WORDS ? palette.primary : "#c9c9b8",
                                 color: palette.bg,
                                 fontSize: "14px",
                                 fontWeight: 600,
-                                cursor: generalFeedback.trim() ? "pointer" : "not-allowed",
+                                cursor:
+                                    countWords(generalFeedback) >= MIN_WORDS ? "pointer" : "not-allowed",
                             }}
                         >
                             Submit general feedback
