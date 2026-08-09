@@ -1,4 +1,4 @@
-# CCM Feedback Portal — Project Wiki
+# CCM Feedback Portal
 
 ## 1. Overview
 
