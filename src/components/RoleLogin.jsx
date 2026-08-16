@@ -1,18 +1,26 @@
 import React, { useState } from "react";
 import { palette, inputStyle } from "../theme";
 
-export default function AdminLogin() {
-    const [username, setUsername] = useState("");
+export default function RoleLogin() {
+    const [role, setRole] = useState("student"); // "student" | "teacher"
+    const [identifier, setIdentifier] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
 
+    const isStudent = role === "student";
+
     const handleSubmit = async (e) => {
         e.preventDefault();
+        const endpoint = isStudent ? "/api/member/login" : "/api/teacher/login";
+        const body = isStudent
+            ? { roll_number: identifier, password }
+            : { username: identifier, password };
+
         try {
-            const res = await fetch("http://localhost:5000/api/admin/login", {
+            const res = await fetch(`http://localhost:5000${endpoint}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username, password }),
+                body: JSON.stringify(body),
             });
             const data = await res.json();
             if (!res.ok) {
@@ -22,7 +30,7 @@ export default function AdminLogin() {
             localStorage.setItem("access_token", data.access_token);
             localStorage.setItem("role", data.role);
             localStorage.setItem("name", data.name);
-            // TODO: navigate to /admin-dashboard once routing is wired up
+            // TODO: navigate to /student-dashboard or /teacher-dashboard once routing is wired up
             console.log("Logged in:", data);
         } catch (err) {
             alert("Could not reach the server. Is the Flask backend running?");
@@ -64,7 +72,7 @@ export default function AdminLogin() {
                             width: "8px",
                             height: "8px",
                             borderRadius: "50%",
-                            background: palette.heading,
+                            background: palette.burnt,
                         }}
                     />
                     <span
@@ -76,7 +84,7 @@ export default function AdminLogin() {
                             fontWeight: 500,
                         }}
                     >
-                        Admin access
+                        Class Committee Meeting Portal
                     </span>
                 </div>
 
@@ -98,7 +106,7 @@ export default function AdminLogin() {
                             textAlign: "center",
                         }}
                     >
-                        Admin sign in
+                        Welcome back
                     </h1>
                     <p
                         style={{
@@ -108,12 +116,56 @@ export default function AdminLogin() {
                             margin: "0 0 28px",
                         }}
                     >
-                        Manage members, subjects, and meeting responses
+                        Sign in to continue to the portal
                     </p>
+
+                    {/* Role tabs */}
+                    <div
+                        role="tablist"
+                        aria-label="Login as"
+                        style={{
+                            display: "flex",
+                            borderBottom: `1px solid ${palette.border}`,
+                            marginBottom: "24px",
+                        }}
+                    >
+                        {[
+                            { key: "student", label: "Student" },
+                            { key: "teacher", label: "Teacher" },
+                        ].map((tab) => {
+                            const active = role === tab.key;
+                            return (
+                                <button
+                                    key={tab.key}
+                                    role="tab"
+                                    aria-selected={active}
+                                    type="button"
+                                    onClick={() => setRole(tab.key)}
+                                    style={{
+                                        flex: 1,
+                                        padding: "10px 0 12px",
+                                        background: "transparent",
+                                        border: "none",
+                                        borderBottom: active
+                                            ? `2px solid ${palette.burnt}`
+                                            : "2px solid transparent",
+                                        marginBottom: "-1px",
+                                        fontSize: "14px",
+                                        fontWeight: 500,
+                                        color: active ? palette.heading : "#9a9a86",
+                                        cursor: "pointer",
+                                        transition: "color 0.15s ease, border-color 0.15s ease",
+                                    }}
+                                >
+                                    {tab.label}
+                                </button>
+                            );
+                        })}
+                    </div>
 
                     <form onSubmit={handleSubmit}>
                         <label
-                            htmlFor="username"
+                            htmlFor="identifier"
                             style={{
                                 display: "block",
                                 fontSize: "13px",
@@ -122,14 +174,14 @@ export default function AdminLogin() {
                                 marginBottom: "6px",
                             }}
                         >
-                            Username
+                            {isStudent ? "Roll number" : "Username"}
                         </label>
                         <input
-                            id="username"
+                            id="identifier"
                             type="text"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            placeholder="admin.username"
+                            value={identifier}
+                            onChange={(e) => setIdentifier(e.target.value)}
+                            placeholder={isStudent ? "e.g. 21CS045" : "teacher.username"}
                             style={inputStyle}
                             onFocus={(e) => (e.target.style.borderColor = palette.burnt)}
                             onBlur={(e) => (e.target.style.borderColor = palette.border)}
@@ -186,22 +238,35 @@ export default function AdminLogin() {
                                 padding: "12px 0",
                                 borderRadius: "10px",
                                 border: "none",
-                                background: palette.heading,
+                                background: palette.primary,
                                 color: palette.bg,
                                 fontSize: "14px",
                                 fontWeight: 600,
                                 cursor: "pointer",
                                 transition: "background 0.15s ease",
                             }}
-                            onMouseEnter={(e) => (e.target.style.background = "#1c2611")}
+                            onMouseEnter={(e) =>
+                                (e.target.style.background = palette.primaryHover)
+                            }
                             onMouseLeave={(e) =>
-                                (e.target.style.background = palette.heading)
+                                (e.target.style.background = palette.primary)
                             }
                         >
-                            Sign in
+                            Sign in as {isStudent ? "student" : "teacher"}
                         </button>
                     </form>
                 </div>
+
+                <p
+                    style={{
+                        textAlign: "center",
+                        fontSize: "12px",
+                        color: "#9a9a86",
+                        marginTop: "20px",
+                    }}
+                >
+                    Trouble signing in? Contact your class committee admin.
+                </p>
             </div>
         </div>
     );

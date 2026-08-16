@@ -44,6 +44,44 @@ def admin_login():
     ), 200
 
 
+@auth_bp.route("/teacher/login", methods=["POST"])
+def teacher_login():
+    data = request.get_json(silent=True) or {}
+    username = data.get("username", "").strip()
+    password = data.get("password", "")
+
+    if not username or not password:
+        return jsonify({"error": "Username and password are required."}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            "SELECT id, username, password_hash, name FROM teachers WHERE username = %s",
+            (username,),
+        )
+        teacher = cursor.fetchone()
+    finally:
+        cursor.close()
+        conn.close()
+
+    if not teacher or not check_password_hash(teacher["password_hash"], password):
+        return jsonify({"error": "Invalid username or password."}), 401
+
+    access_token = create_access_token(
+        identity=str(teacher["id"]),
+        additional_claims={"role": "teacher", "name": teacher["name"]},
+    )
+
+    return jsonify(
+        {
+            "access_token": access_token,
+            "role": "teacher",
+            "name": teacher["name"],
+        }
+    ), 200
+
+
 @auth_bp.route("/member/login", methods=["POST"])
 def member_login():
     data = request.get_json(silent=True) or {}
